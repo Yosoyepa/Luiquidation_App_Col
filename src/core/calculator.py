@@ -9,6 +9,7 @@ basados en el Código Sustantivo del Trabajo de Colombia y prácticas comunes.
 
 import datetime
 from typing import Optional 
+from config import settings # Importar la configuración
 # Nota: Añadir otras importaciones necesarias a medida que se añaden más funciones
 # Por ejemplo: from config import settings
 
@@ -61,68 +62,63 @@ def calcular_dias_liquidacion(fecha_inicio: datetime.date, fecha_fin: datetime.d
 
 
 # ==============================================================================
-# Funciones de Cálculo de Prestaciones (Ejemplos - A desarrollar)
+# Funciones de Cálculo de Prestaciones
 # ==============================================================================
 
-# def calcular_cesantias(salario_base: float, dias_trabajados: int) -> float:
-#     """Calcula el valor de las cesantías."""
-#     # Importar configuraciones si es necesario (ej: para auxilio transporte)
-#     # from config import settings 
-#     # Lógica de cálculo según Art. 249 CST y Ley 50/1990
-#     # return (salario_base * dias_trabajados) / 360
-#     pass
+def calcular_cesantias(
+    salario_mensual: float,
+    fecha_inicio: datetime.date,
+    fecha_fin: datetime.date,
+    anio_liquidacion: Optional[int] = None # Año para buscar SMMLV/Auxilio
+) -> float:
+    """
+    Calcula el valor de las cesantías para un periodo determinado.
 
-# def calcular_intereses_cesantias(valor_cesantias: float, dias_trabajados: int) -> float:
-#     """Calcula los intereses sobre las cesantías."""
-#     # from config.settings import PORCENTAJE_INTERESES_CESANTIAS
-#     # Lógica de cálculo: ValorCesantias * DiasTrabajados * 0.12 / 360
-#     # return (valor_cesantias * dias_trabajados * PORCENTAJE_INTERESES_CESANTIAS) / 360
-#     pass
+    Args:
+        salario_mensual: Salario mensual base del empleado.
+        fecha_inicio: Fecha de inicio del periodo de cálculo.
+        fecha_fin: Fecha de fin del periodo de cálculo.
+        anio_liquidacion: El año para el cual se consultan el SMMLV y Aux. Transporte.
+                          Si es None, se usará el año de la fecha_fin.
 
-# def calcular_prima_servicios(salario_base: float, dias_trabajados_semestre: int) -> float:
-#     """Calcula la prima de servicios para un semestre."""
-#     # Lógica de cálculo según Art. 306 CST
-#     # return (salario_base * dias_trabajados_semestre) / 360
-#     pass
+    Returns:
+        El valor calculado de las cesantías para el periodo.
 
-# def calcular_vacaciones_compensadas(salario_base_vacaciones: float, dias_trabajados: int) -> float:
-#     """Calcula la compensación en dinero por vacaciones no disfrutadas."""
-#     # Lógica de cálculo según Art. 186, 189 CST
-#     # return (salario_base_vacaciones * dias_trabajados) / 720
-#     pass
+    Raises:
+        ValueError: Si las fechas son inválidas o falta configuración para el año.
+    """
+    if anio_liquidacion is None:
+        anio_liquidacion = fecha_fin.year
+
+    # Obtener SMMLV y Auxilio de Transporte del año correspondiente
+    smmlv_anio = settings.obtener_smmlv(anio_liquidacion)
+    auxilio_transporte_anio = settings.obtener_auxilio_transporte(anio_liquidacion)
+
+    if smmlv_anio <= 0 or auxilio_transporte_anio <= 0:
+        raise ValueError(f"No se encontró configuración de SMMLV/Aux. Transporte para el año {anio_liquidacion}")
+
+    # Determinar si aplica el auxilio de transporte
+    aplica_auxilio = salario_mensual <= (settings.MAX_SMMLV_PARA_AUXILIO_TRANSPORTE * smmlv_anio)
+
+    # Calcular el salario base para la liquidación (incluye auxilio si aplica)
+    salario_base_liquidacion = salario_mensual
+    if aplica_auxilio:
+        salario_base_liquidacion += auxilio_transporte_anio
+
+    # Calcular los días trabajados en el periodo usando la función existente
+    dias_trabajados = calcular_dias_liquidacion(fecha_inicio, fecha_fin)
+
+    # Calcular las cesantías: (Salario Base * Días Trabajados) / 360
+    # Asegurarse de usar float para la división
+    cesantias = (float(salario_base_liquidacion) * dias_trabajados) / 360.0
+
+    # Considerar redondeo si es necesario (ej. al peso más cercano)
+    # return round(cesantias)
+    return cesantias
+
+# ... (Resto de funciones: intereses_cesantias, prima, vacaciones, etc. a implementar) ...
+
+# ... (Función Orquestadora calcular_liquidacion_final a implementar) ...
 
 
-# ==============================================================================
-# Función Principal de Liquidación (Orquestador - A desarrollar)
-# ==============================================================================
 
-# def calcular_liquidacion_final(
-#     fecha_inicio_contrato: datetime.date,
-#     fecha_fin_contrato: datetime.date,
-#     salario_mensual: float,
-#     incluye_auxilio_transporte: bool, # Determinado externamente basado en salario y SMMLV
-#     # otros parámetros necesarios: tipo_contrato, causa_terminacion, etc.
-# ) -> dict:
-#     """
-#     Orquesta el cálculo completo de la liquidación final del contrato.
-#     """
-#     dias_totales_liquidacion = calcular_dias_liquidacion(fecha_inicio_contrato, fecha_fin_contrato)
-    
-#     # Aquí iría la lógica para determinar periodos, bases salariales,
-#     # y llamar a las funciones específicas de cálculo (cesantías, prima, etc.)
-    
-#     resultado = {
-#         "dias_liquidacion": dias_totales_liquidacion,
-#         "cesantias": 0.0, # calcular_cesantias(...)
-#         "intereses_cesantias": 0.0, # calcular_intereses_cesantias(...)
-#         "prima_servicios": 0.0, # calcular_prima_servicios(...)
-#         "vacaciones_compensadas": 0.0, # calcular_vacaciones_compensadas(...)
-#         "indemnizacion": 0.0, # Si aplica
-#         "salarios_pendientes": 0.0, # Si aplica
-#         "aportes_pendientes": 0.0, # Si aplica (Seguridad Social, Parafiscales)
-#         "total_liquidacion": 0.0 
-#     }
-#     # Calcular el total sumando los componentes
-#     # ...
-    
-#     return resultado
