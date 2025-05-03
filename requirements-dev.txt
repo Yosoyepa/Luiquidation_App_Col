@@ -1,0 +1,15 @@
+# requirements-dev.txt
+# Dependencias para pruebas, linting, formato y empaquetado
+
+# Testing
+pytest>=8.0.0,<9.0.0
+
+# Formatting
+black>=24.0.0,<25.0.0
+isort>=5.10.0,<6.0.0
+
+# Linting
+flake8>=7.0.0,<8.0.0
+
+# Packaging (Opcional)
+pyinstaller>=6.0.0,<7.0.0

@@ -1,0 +1,10 @@
+# requirements.txt
+
+# Core GUI Framework
+customtkinter>=5.2.0,<6.0.0
+
+# Widgets adicionales (ej. Calendario)
+tkcalendar>=1.6.1,<2.0.0
+
+# --- Opcional - Descomentar si se usa para manejo avanzado de datos ---
+# pandas>=2.0.0,<3.0.0
