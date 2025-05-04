@@ -12,9 +12,9 @@ from typing import Final
 
 # --- Paleta de Colores Principal---
 
-COLOR_SIDEBAR_BG: Final[str] = "#F2EBF9"         # Lila muy claro (Sidebar background)
+COLOR_SIDEBAR_BG: Final[str] = "#F0D7F9"         # Lila muy claro (Sidebar background)
 COLOR_SIDEBAR_TEXT: Final[str] = "#333333"         # Gris oscuro/Negro (Texto general)
-COLOR_SIDEBAR_SELECTED_BG: Final[str] = "#E8DDF5" # Lila un poco más oscuro (Selección en Sidebar)
+COLOR_SIDEBAR_SELECTED_BG: Final[str] = "#CEAECA" # Lila un poco más oscuro (Selección en Sidebar)
 COLOR_SIDEBAR_SELECTED_TEXT: Final[str] = "#333333" # Texto oscuro para ítem seleccionado
 COLOR_SIDEBAR_DISABLED_TEXT: Final[str] = "#9B9B9B" # Gris claro para texto deshabilitado
 
@@ -26,7 +26,7 @@ COLOR_CARD_HOVER: Final[str] = "#F8F8F8"          # Gris extra claro (Hover en t
 COLOR_CARD_CLICK: Final[str] = "#E0E0E0"          # Gris claro (Efecto visual al clickear tarjeta)
 COLOR_CARD_DISABLED_TEXT: Final[str] = "#BDBDBD"  # Gris medio (Texto en tarjeta deshabilitada)
 
-COLOR_ICON_PLACEHOLDER_BG: Final[str] = "#F2EBF9" # Lila claro (Fondo placeholder icono)
+COLOR_ICON_PLACEHOLDER_BG: Final[str] = "#F0D7F9" # Lila claro (Fondo placeholder icono)
 
 COLOR_SECTION_HEADER: Final[str] = "#4A4A4A"      # Gris oscuro (Títulos de sección)
 
