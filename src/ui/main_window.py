@@ -1,5 +1,6 @@
 # src/ui/main_window.py
 import customtkinter as ctk
+from tkinter import Frame  # Regular tkinter Frame as a fallback
 # Importar TODOS los frames principales que gestionará
 from .frames.main_menu_frame import MainMenuFrame
 from .frames.days_calculator_frame import DaysCalculatorFrame
@@ -10,22 +11,33 @@ class MainWindow(ctk.CTk):
     Ventana principal de la aplicación. Gestiona y muestra los diferentes frames (vistas).
     """
     def __init__(self, *args, **kwargs):
+        # Disable scaling completely
+        ctk.deactivate_automatic_dpi_awareness()
+        
+        # Initialize with no scaling parameters in kwargs
+        if 'fg_color' in kwargs:
+            del kwargs['fg_color']
+        if 'width' in kwargs:
+            del kwargs['width']
+        if 'height' in kwargs:
+            del kwargs['height']
+            
         super().__init__(*args, **kwargs)
 
         self.title("Calculadora de Liquidación Laboral (COL)")
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
-        width = 950 # Ajustar tamaño
-        height = 600 # Ajustar tamaño
-        x = (screen_width/2) - (width/2)
-        y = (screen_height/2) - (height/2)
-        self.geometry(f'{width}x{height}+{int(x)}+{int(y)}')
+        width = 950
+        height = 600
+        x = int((screen_width/2) - (width/2))
+        y = int((screen_height/2) - (height/2))
+        self.geometry(f'{width}x{height}+{x}+{y}')
         self.minsize(700, 500)
 
         # --- Contenedor Principal ---
-        # Un frame que ocupa toda la ventana para poner los otros frames encima
-        container = ctk.CTkFrame(self, fg_color="transparent")
-        container.pack(side="top", fill="both", expand=True)
+        # Use standard tkinter Frame instead of CTkFrame to avoid scaling issues
+        container = Frame(self)
+        container.pack(fill="both", expand=True)
         container.grid_rowconfigure(0, weight=1)
         container.grid_columnconfigure(0, weight=1)
 
@@ -33,7 +45,6 @@ class MainWindow(ctk.CTk):
         self.frames = {}
 
         # --- Crear e inicializar todos los frames ---
-        # Usamos lambda para pasar 'container' como master a cada frame
         for F in (MainMenuFrame, DaysCalculatorFrame, CesantiasFrame):
             page_name = F.__name__
             frame = F(master=container)
@@ -52,7 +63,6 @@ class MainWindow(ctk.CTk):
         else:
             print(f"Advertencia: No se encontró el frame '{page_name}'")
 
-    # --- Métodos para obtener instancias de frames específicos (para el controlador) ---
     def get_frame(self, page_name: str):
         """Obtiene la instancia de un frame por su nombre de clase."""
         return self.frames.get(page_name)
