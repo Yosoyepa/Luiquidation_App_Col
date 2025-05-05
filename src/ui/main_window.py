@@ -5,6 +5,7 @@ from tkinter import Frame  # Regular tkinter Frame as a fallback
 from .frames.main_menu_frame import MainMenuFrame
 from .frames.days_calculator_frame import DaysCalculatorFrame
 from .frames.cesantias_frame import CesantiasFrame
+from .frames.intereses_cesantias_frame import InteresesCesantiasFrame
 
 class MainWindow(ctk.CTk):
     """
@@ -45,11 +46,14 @@ class MainWindow(ctk.CTk):
         self.frames = {}
 
         # --- Crear e inicializar todos los frames ---
-        for F in (MainMenuFrame, DaysCalculatorFrame, CesantiasFrame):
+        for F in (MainMenuFrame, DaysCalculatorFrame, CesantiasFrame, InteresesCesantiasFrame):
             page_name = F.__name__
+            # Crear instancia pasando el contenedor como master
+            # Usamos **kwargs para pasar otros posibles argumentos si F los aceptara
+            # Es importante que InteresesCesantiasFrame también acepte 'master'
             frame = F(master=container)
             self.frames[page_name] = frame
-            # Colocar todos en el mismo lugar, el que esté arriba es visible
+            # Colocar todos en el mismo lugar
             frame.grid(row=0, column=0, sticky="nsew")
 
         # --- Mostrar el frame inicial ---

@@ -74,6 +74,8 @@ MAX_SMMLV_PARA_AUXILIO_TRANSPORTE: Final[int] = 2
 
 # Podrías añadir aquí otros valores como UVT si fueran necesarios para cálculos específicos.
 
+# Porcentaje de Intereses sobre Cesantías (Fijo por ley)
+PORCENTAJE_INTERESES_CESANTIAS: Final[float] = 0.12 # Equivale al 12% anual
 
 # --- Funciones de utilidad para acceder a los datos ---
 

@@ -116,6 +116,49 @@ def calcular_cesantias(
     # return round(cesantias)
     return cesantias
 
+
+def calcular_intereses_cesantias(
+    valor_cesantias: float,
+    fecha_inicio: datetime.date,
+    fecha_fin: datetime.date
+) -> float:
+    """
+    Calcula los intereses sobre las cesantías para un periodo determinado.
+
+    Formula: (Valor Cesantías * Días Trabajados * 0.12) / 360
+
+    Args:
+        valor_cesantias: El monto de las cesantías calculado para el periodo.
+        fecha_inicio: Fecha de inicio del periodo de cálculo (para calcular días).
+        fecha_fin: Fecha de fin del periodo de cálculo (para calcular días).
+
+    Returns:
+        El valor calculado de los intereses sobre cesantías.
+
+    Raises:
+        ValueError: Si las fechas son inválidas.
+    """
+    # Calcular los días trabajados para el periodo
+    # Nota: Se podría pasar dias_trabajados como argumento si ya se calculó externamente
+    #       para evitar recalcularlo. Por ahora, lo calculamos aquí.
+    try:
+        dias_trabajados = calcular_dias_liquidacion(fecha_inicio, fecha_fin)
+    except ValueError as e:
+        # Re-lanzar el error si las fechas son inválidas
+        raise ValueError(f"Error al calcular días para intereses: {e}")
+
+    if dias_trabajados < 0: # Validación extra
+        raise ValueError("Los días trabajados no pueden ser negativos.")
+
+    # Obtener la tasa de interés desde la configuración
+    tasa_interes = settings.PORCENTAJE_INTERESES_CESANTIAS
+
+    # Calcular los intereses
+    intereses = (valor_cesantias * dias_trabajados * tasa_interes) / 360.0
+
+    return intereses
+
+
 # ... (Resto de funciones: intereses_cesantias, prima, vacaciones, etc. a implementar) ...
 
 # ... (Función Orquestadora calcular_liquidacion_final a implementar) ...
