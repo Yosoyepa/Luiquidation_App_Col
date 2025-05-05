@@ -8,15 +8,14 @@ Define las constantes de estilo visual (colores, fuentes, etc.)
 para la interfaz de usuario de la aplicación.
 """
 
-from typing import Final
+from typing import Final, Tuple, Dict, Any
 
-# --- Paleta de Colores Principal---
-
+# --- Paleta de Colores Principal (Ajustada por el usuario) ---
 COLOR_SIDEBAR_BG: Final[str] = "#F0D7F9"         # Lila muy claro (Sidebar background)
-COLOR_SIDEBAR_TEXT: Final[str] = "#333333"         # Gris oscuro/Negro (Texto general)
-COLOR_SIDEBAR_SELECTED_BG: Final[str] = "#CEAECA" # Lila un poco más oscuro (Selección en Sidebar)
-COLOR_SIDEBAR_SELECTED_TEXT: Final[str] = "#333333" # Texto oscuro para ítem seleccionado
-COLOR_SIDEBAR_DISABLED_TEXT: Final[str] = "#9B9B9B" # Gris claro para texto deshabilitado
+COLOR_SIDEBAR_TEXT: Final[str] = "#333333"         # Gris oscuro/Negro (Texto general Sidebar)
+COLOR_SIDEBAR_SELECTED_BG: Final[str] = "#CEAECA" # Lila más oscuro (Selección en Sidebar)
+COLOR_SIDEBAR_SELECTED_TEXT: Final[str] = "#FFFFFF" # BLANCO (Texto ítem seleccionado Sidebar)
+COLOR_SIDEBAR_DISABLED_TEXT: Final[str] = "#9B9B9B" # Gris claro (Texto deshabilitado Sidebar)
 
 COLOR_MAIN_BG: Final[str] = "#FFFFFF"             # Blanco (Fondo área principal)
 
@@ -30,19 +29,23 @@ COLOR_ICON_PLACEHOLDER_BG: Final[str] = "#F0D7F9" # Lila claro (Fondo placeholde
 
 COLOR_SECTION_HEADER: Final[str] = "#4A4A4A"      # Gris oscuro (Títulos de sección)
 
-COLOR_BUTTON_TEXT: Final[str] = "#FFFFFF"          # Blanco (Texto en botones estándar CTk)
-COLOR_BUTTON_BORDER: Final[str] = "#C0C0C0"       # Gris para borde de botón por defecto (ejemplo)
+COLOR_SCROLLBAR_FG: Final[str] = "#FFFFFF"        # Gris claro para la barra scroll
+COLOR_SCROLLBAR_HOVER: Final[str] = "#DBDBDB"     # Gris un poco más oscuro para hover scroll
 
-COLOR_ERROR_TEXT: Final[str] = "#B00020"          # Rojo para mensajes de error (ejemplo)
-COLOR_SUCCESS_TEXT: Final[str] = "#006400"       # Verde para mensajes de éxito (ejemplo)
+COLOR_BUTTON_TEXT: Final[str] = "#FFFFFF"
+COLOR_BUTTON_BORDER: Final[str] = "#C0C0C0"
+COLOR_ERROR_TEXT: Final[str] = "#B00020"
+COLOR_SUCCESS_TEXT: Final[str] = "#006400"
 
-# --- Fuentes (Opcional - Podrías definir fuentes estándar aquí también) ---
-# FONT_FAMILY_DEFAULT: Final[str] = "Segoe UI"
-# FONT_SIZE_NORMAL: Final[int] = 12
-# FONT_SIZE_HEADER: Final[int] = 14
-# FONT_WEIGHT_BOLD: Final[str] = "bold"
+# --- Especificaciones de Fuentes ---
+# Definimos las propiedades, NO el objeto CTkFont aquí
+FONT_FAMILY_DEFAULT: Final[str] = "Inter" # O la fuente que prefieras/tengas
 
-# --- Otros Estilos (Padding, Corner Radius - Opcional) ---
-# PADDING_DEFAULT: Final[int] = 10
-# CORNER_RADIUS_CARD: Final[int] = 8
-# CORNER_RADIUS_ICON: Final[int] = 6
+# Especificación: (family, size, weight)
+FONT_SPEC_SIDEBAR_TITLE: Final[Tuple[str, int, str]] = (FONT_FAMILY_DEFAULT, 16, "bold")
+FONT_SPEC_SIDEBAR_NORMAL: Final[Tuple[str, int, str]] = (FONT_FAMILY_DEFAULT, 13, "normal")
+FONT_SPEC_SIDEBAR_SELECTED: Final[Tuple[str, int, str]] = (FONT_FAMILY_DEFAULT, 14, "bold")
+FONT_SPEC_SECTION_HEADER: Final[Tuple[str, int, str]] = (FONT_FAMILY_DEFAULT, 14, "bold")
+FONT_SPEC_CARD_TEXT: Final[Tuple[str, int, str]] = (FONT_FAMILY_DEFAULT, 12, "normal")
+
+# Podrías añadir más especificaciones aquí...
