@@ -3,14 +3,18 @@ import datetime
 import locale
 import src.ui.theme as theme
 from src.core import calculator
+from src.core.constants import CONCEPTOS
+from src.core.models import PeriodoLaboral, ResultadoCalculo
 from src.ui.main_window import MainWindow
-# Importar los tipos de frame específicos es útil para type hinting
+from src.utils.validation import validar_valor_numerico, validar_fechas_periodo
+from src.utils.formatting import formatear_moneda, formatear_porcentaje
+
+# Importar los tipos de frame específicos para type hinting
 from src.ui.frames.main_menu_frame import MainMenuFrame
 from src.ui.frames.days_calculator_frame import DaysCalculatorFrame
 from src.ui.frames.cesantias_frame import CesantiasFrame
-# Asegurarse que el import del frame de intereses esté presente
 from src.ui.frames.intereses_cesantias_frame import InteresesCesantiasFrame
-from typing import Any, Dict
+from typing import Any, Dict, Optional, Tuple
 
 # --- Configuración de Locale (Importante para formato de moneda) ---
 # Intentar configurar para Colombia, manejar posibles errores
@@ -46,10 +50,10 @@ class MainController:
         self.current_mode = "Laboral" # Modo inicial por defecto
 
         # Obtener referencias a TODOS los frames principales desde la vista
-        self.main_menu_frame: MainMenuFrame | None = view.get_frame("MainMenuFrame")
-        self.days_calc_frame: DaysCalculatorFrame | None = view.get_frame("DaysCalculatorFrame")
-        self.cesantias_frame: CesantiasFrame | None = view.get_frame("CesantiasFrame")
-        self.intereses_frame: InteresesCesantiasFrame | None = view.get_frame("InteresesCesantiasFrame") # Referencia al frame de intereses
+        self.main_menu_frame: Optional[MainMenuFrame] = view.get_frame("MainMenuFrame")
+        self.days_calc_frame: Optional[DaysCalculatorFrame] = view.get_frame("DaysCalculatorFrame")
+        self.cesantias_frame: Optional[CesantiasFrame] = view.get_frame("CesantiasFrame")
+        self.intereses_frame: Optional[InteresesCesantiasFrame] = view.get_frame("InteresesCesantiasFrame")
 
         # Conectar señales para todos los frames existentes usando métodos helper
         if self.main_menu_frame: self._connect_main_menu_signals()
@@ -61,9 +65,8 @@ class MainController:
         if self.cesantias_frame: self._connect_cesantias_signals()
         else: print("Error: CesantiasFrame no encontrado al inicializar MainController.")
 
-        if self.intereses_frame: self._connect_intereses_signals() # Conectar el nuevo frame
+        if self.intereses_frame: self._connect_intereses_signals()
         else: print("Error: InteresesCesantiasFrame no encontrado al inicializar MainController.")
-
 
     def _connect_main_menu_signals(self):
         """Conecta los comandos de las tarjetas del menú principal."""
@@ -71,7 +74,6 @@ class MainController:
         # Conectar usando el método 'set_card_command' del MainMenuFrame
         self.main_menu_frame.set_card_command("CalcDias", self.show_days_calculator)
         self.main_menu_frame.set_card_command("Cesantias", self.show_cesantias_calculator)
-        # Conectar la tarjeta de Intereses (asegurarse que esté habilitada en el frame)
         self.main_menu_frame.set_card_command("Intereses", self.show_intereses_calculator)
         # Conectar otras tarjetas aquí cuando se implementen...
         # self.main_menu_frame.set_card_command("Prima", self.show_prima_calculator)
@@ -144,8 +146,17 @@ class MainController:
         try:
             fecha_inicio = days_input_frame.get_fecha_inicio()
             fecha_fin = days_input_frame.get_fecha_fin()
+            
+            # Validar fechas usando el módulo de validación
+            es_valido, mensaje_error = validar_fechas_periodo(fecha_inicio, fecha_fin)
+            if not es_valido:
+                raise ValueError(mensaje_error)
+                
             print(f"Calculando días entre {fecha_inicio} y {fecha_fin}")
-            dias_calculados = calculator.calcular_dias_liquidacion(fecha_inicio, fecha_fin)
+            # Usar date_helpers para el cálculo pero mantener compatibilidad con el código existente
+            from src.utils.date_helpers import calcular_dias_liquidacion
+            dias_calculados = calcular_dias_liquidacion(fecha_inicio, fecha_fin)
+            
             print(f"Días calculados: {dias_calculados}")
             days_results_frame.update_result(f"Días calculados (30/360): {dias_calculados}")
         except ValueError as e:
@@ -164,57 +175,83 @@ class MainController:
 
         results_payload: Dict[str, str] = {} # Para enviar a la UI
         try:
-            # 1. Obtener entradas de la UI
+            # 1. Obtener y validar entradas de la UI
             inputs = self.cesantias_frame.get_inputs()
-            # La clave es "salario_mensual" pero representa el básico sin auxilio
             salario_basico = inputs["salario_mensual"]
             fecha_inicio = inputs["fecha_inicio"]
             fecha_fin = inputs["fecha_fin"]
             anio = fecha_fin.year # Año para buscar params
+            
+            # Validar salario usando el módulo de validación
+            es_valido, mensaje_error = validar_valor_numerico(salario_basico, 0, "salario básico")
+            if not es_valido:
+                raise ValueError(mensaje_error)
+                
+            # Validar fechas usando el módulo de validación
+            es_valido, mensaje_error = validar_fechas_periodo(fecha_inicio, fecha_fin)
+            if not es_valido:
+                raise ValueError(mensaje_error)
+                
             print(f"Inputs Cesantías: Salario Básico={salario_basico}, Inicio={fecha_inicio}, Fin={fecha_fin}, Año Ref={anio}")
 
-            if salario_basico <= 0:
-                 raise ValueError("El salario básico mensual debe ser mayor a cero.")
-
-            # 2. Calcular Cesantías
-            cesantias_valor = calculator.calcular_cesantias(
-                salario_mensual=salario_basico, # Pasa el salario básico
+            # 2. Crear objeto PeriodoLaboral para encapsular datos de cálculo
+            periodo = PeriodoLaboral(
                 fecha_inicio=fecha_inicio,
                 fecha_fin=fecha_fin,
+                salario_base=salario_basico,
+                incluye_auxilio=False  # Se decidirá en la función de cálculo basado en el valor del salario
+            )
+
+            # 3. Calcular Cesantías
+            cesantias_valor = calculator.calcular_cesantias(
+                salario_mensual=periodo.salario_base,
+                fecha_inicio=periodo.fecha_inicio,
+                fecha_fin=periodo.fecha_fin,
                 anio_liquidacion=anio
             )
             print(f"Cesantías calculadas: {cesantias_valor}")
 
-            # 3. Calcular Intereses sobre Cesantías (depende del valor anterior)
+            # 4. Calcular Intereses sobre Cesantías (depende del valor anterior)
             intereses_valor = calculator.calcular_intereses_cesantias(
                 valor_cesantias=cesantias_valor,
-                fecha_inicio=fecha_inicio, # Se pasan fechas para que calcule días internamente
-                fecha_fin=fecha_fin
+                fecha_inicio=periodo.fecha_inicio,
+                fecha_fin=periodo.fecha_fin
             )
             print(f"Intereses calculados: {intereses_valor}")
 
-            # 4. Formatear resultados como moneda
-            try:
-                cesantias_formateado = locale.currency(cesantias_valor, grouping=True, symbol='COP ')
-                intereses_formateado = locale.currency(intereses_valor, grouping=True, symbol='COP ')
-            except Exception as format_error:
-                 print(f"Error formateando moneda con locale: {format_error}. Mostrando números.")
-                 cesantias_formateado = f"COP {cesantias_valor:,.2f}"
-                 intereses_formateado = f"COP {intereses_valor:,.2f}"
+            # 5. Crear ResultadoCalculo objetos para los resultados (opcionalmente)
+            resultado_cesantias = ResultadoCalculo(
+                concepto=CONCEPTOS["CESANTIAS"],
+                valor=cesantias_valor,
+                dias_calculados=periodo.dias_laborados,
+                fecha_inicio=periodo.fecha_inicio,
+                fecha_fin=periodo.fecha_fin
+            )
+            
+            resultado_intereses = ResultadoCalculo(
+                concepto=CONCEPTOS["INTERESES"],
+                valor=intereses_valor,
+                dias_calculados=periodo.dias_laborados,
+                fecha_inicio=periodo.fecha_inicio,
+                fecha_fin=periodo.fecha_fin
+            )
 
-            # 5. Preparar payload para la UI (ambos resultados)
+            # 6. Formatear resultados usando el módulo de formateo
+            cesantias_formateado = formatear_moneda(resultado_cesantias.valor)
+            intereses_formateado = formatear_moneda(resultado_intereses.valor)
+
+            # 7. Preparar payload para la UI
             results_payload["cesantias"] = f"Cesantías Calculadas: {cesantias_formateado}"
             results_payload["intereses"] = f"Intereses Cesantías: {intereses_formateado}"
 
         except ValueError as e:
             print(f"Error de validación/cálculo Cesantías/Intereses: {e}")
-            results_payload["error"] = str(e) # Pasar error para que update_results lo muestre
+            results_payload["error"] = str(e)
         except Exception as e:
             print(f"Error inesperado en cálculo cesantías/intereses: {e}")
             results_payload["error"] = "Ocurrió un error inesperado."
 
-        # 6. Actualizar la UI del CesantiasFrame con ambos resultados o error
-        # Asegurarse que CesantiasFrame tiene el método update_results
+        # 8. Actualizar la UI
         if hasattr(self.cesantias_frame, 'update_results'):
              self.cesantias_frame.update_results(results_payload)
         else:
@@ -227,18 +264,25 @@ class MainController:
         if not self.intereses_frame: return
 
         try:
-            # 1. Obtener entradas de la UI específica de intereses
+            # 1. Obtener y validar entradas de la UI específica de intereses
             inputs = self.intereses_frame.get_inputs()
             valor_cesantias = inputs["valor_cesantias"]
             fecha_inicio = inputs["fecha_inicio"]
             fecha_fin = inputs["fecha_fin"]
+            
+            # Validación del valor usando el módulo de validación
+            es_valido, mensaje_error = validar_valor_numerico(valor_cesantias, 0, "valor de cesantías")
+            if not es_valido:
+                raise ValueError(mensaje_error)
+                
+            # Validación de fechas usando el módulo de validación
+            es_valido, mensaje_error = validar_fechas_periodo(fecha_inicio, fecha_fin)
+            if not es_valido:
+                raise ValueError(mensaje_error)
+            
             print(f"Inputs Intereses: Valor Cesantías={valor_cesantias}, Inicio={fecha_inicio}, Fin={fecha_fin}")
 
-            if valor_cesantias < 0:
-                raise ValueError("El valor de Cesantías no puede ser negativo.")
-
-            # 2. Calcular Intereses
-            # Asumiendo que calcular_intereses_cesantias sigue existiendo en calculator.py
+            # 2. Calcular intereses
             intereses_valor = calculator.calcular_intereses_cesantias(
                 valor_cesantias=valor_cesantias,
                 fecha_inicio=fecha_inicio,
@@ -246,28 +290,21 @@ class MainController:
             )
             print(f"Intereses calculados: {intereses_valor}")
 
-            # 3. Formatear resultado
-            try:
-                intereses_formateado = locale.currency(intereses_valor, grouping=True, symbol='COP ')
-            except Exception as format_error:
-                print(f"Error formateando moneda: {format_error}. Mostrando número.")
-                intereses_formateado = f"COP {intereses_valor:,.2f}"
-
+            # 3. Formatear resultado usando el módulo de formateo
+            intereses_formateado = formatear_moneda(intereses_valor)
             result_text = f"Intereses Calculados: {intereses_formateado}"
-            # 4. Actualizar UI del frame de intereses (singular)
-            # Asegurarse que InteresesCesantiasFrame tiene update_result
+            
+            # 4. Actualizar UI
             if hasattr(self.intereses_frame, 'update_result'):
                  self.intereses_frame.update_result(result_text)
             else:
                  print("Error: InteresesCesantiasFrame no tiene el método 'update_result'.")
 
-
         except ValueError as e:
              print(f"Error de validación/cálculo Intereses: {e}")
-             # Usar show_error del frame de intereses si existe
              if hasattr(self.intereses_frame, 'show_error'):
                   self.intereses_frame.show_error(str(e))
-             else: # Fallback si no existe show_error
+             else: # Fallback
                   self.intereses_frame.update_result(f"Error: {e}")
         except Exception as e:
              print(f"Error inesperado en cálculo intereses: {e}")

@@ -8,58 +8,16 @@ basados en el Código Sustantivo del Trabajo de Colombia y prácticas comunes.
 """
 
 import datetime
-from typing import Optional 
-from config import settings # Importar la configuración
-# Nota: Añadir otras importaciones necesarias a medida que se añaden más funciones
-# Por ejemplo: from config import settings
-
-# ==============================================================================
-# Funciones de Cálculo de Días
-# ==============================================================================
-
-def calcular_dias_liquidacion(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> int:
-    """
-    Calcula el número de días entre dos fechas para fines de liquidación laboral
-    en Colombia, utilizando la convención de año de 360 días y mes de 30 días.
-
-    Reglas aplicadas:
-    1. Se considera que todos los meses tienen 30 días.
-    2. Si el día de inicio es 31, se toma como 30 para el cálculo.
-    3. Si el día de fin es 31, se toma como 30 para el cálculo.
-    4. El cálculo incluye tanto la fecha de inicio como la fecha de fin (es inclusivo),
-       sumando 1 al resultado de la diferencia calculada con la fórmula 30/360.
-
-    Args:
-        fecha_inicio: La fecha de inicio del periodo (objeto datetime.date).
-        fecha_fin: La fecha de fin del periodo (objeto datetime.date).
-
-    Returns:
-        El número de días de liquidación calculados (int).
-
-    Raises:
-        ValueError: Si la fecha_fin es anterior a la fecha_inicio.
-    """
-    if fecha_fin < fecha_inicio:
-        raise ValueError("La fecha de fin no puede ser anterior a la fecha de inicio.")
-
-    # Extraer componentes de las fechas
-    y1, m1, d1 = fecha_inicio.year, fecha_inicio.month, fecha_inicio.day
-    y2, m2, d2 = fecha_fin.year, fecha_fin.month, fecha_fin.day
-
-    # --- Aplicar ajustes para la convención 30/360 ---
-    if d1 == 31:
-        d1 = 30
-    if d2 == 31:
-        d2 = 30
-        
-    # --- Calcular la diferencia de días usando la fórmula 30/360 ---
-    dias_diferencia = ((y2 - y1) * 360) + ((m2 - m1) * 30) + (d2 - d1)
-
-    # --- Sumar 1 para que el cálculo sea inclusivo (contar ambos extremos) ---
-    dias_totales = dias_diferencia + 1
-
-    return dias_totales
-
+from typing import Optional, Dict, Any
+from config import settings
+from src.core.constants import (
+    PORCENTAJE_INTERESES_CESANTIAS, 
+    MAX_SMMLV_PARA_AUXILIO_TRANSPORTE,
+    DIAS_ANIO_COMERCIAL
+)
+from src.utils.date_helpers import calcular_dias_liquidacion
+from src.utils.validation import validar_fechas_periodo
+from src.core.models import PeriodoLaboral, ResultadoCalculo
 
 # ==============================================================================
 # Funciones de Cálculo de Prestaciones
@@ -87,6 +45,11 @@ def calcular_cesantias(
     Raises:
         ValueError: Si las fechas son inválidas o falta configuración para el año.
     """
+    # Validar fechas
+    es_valido, mensaje_error = validar_fechas_periodo(fecha_inicio, fecha_fin)
+    if not es_valido:
+        raise ValueError(mensaje_error)
+        
     if anio_liquidacion is None:
         anio_liquidacion = fecha_fin.year
 
@@ -98,22 +61,19 @@ def calcular_cesantias(
         raise ValueError(f"No se encontró configuración de SMMLV/Aux. Transporte para el año {anio_liquidacion}")
 
     # Determinar si aplica el auxilio de transporte
-    aplica_auxilio = salario_mensual <= (settings.MAX_SMMLV_PARA_AUXILIO_TRANSPORTE * smmlv_anio)
+    aplica_auxilio = salario_mensual <= (MAX_SMMLV_PARA_AUXILIO_TRANSPORTE * smmlv_anio)
 
     # Calcular el salario base para la liquidación (incluye auxilio si aplica)
     salario_base_liquidacion = salario_mensual
     if aplica_auxilio:
         salario_base_liquidacion += auxilio_transporte_anio
 
-    # Calcular los días trabajados en el periodo usando la función existente
+    # Calcular los días trabajados en el periodo
     dias_trabajados = calcular_dias_liquidacion(fecha_inicio, fecha_fin)
 
     # Calcular las cesantías: (Salario Base * Días Trabajados) / 360
-    # Asegurarse de usar float para la división
-    cesantias = (float(salario_base_liquidacion) * dias_trabajados) / 360.0
+    cesantias = (float(salario_base_liquidacion) * dias_trabajados) / DIAS_ANIO_COMERCIAL
 
-    # Considerar redondeo si es necesario (ej. al peso más cercano)
-    # return round(cesantias)
     return cesantias
 
 
@@ -138,9 +98,12 @@ def calcular_intereses_cesantias(
     Raises:
         ValueError: Si las fechas son inválidas.
     """
+    # Validar fechas
+    es_valido, mensaje_error = validar_fechas_periodo(fecha_inicio, fecha_fin)
+    if not es_valido:
+        raise ValueError(mensaje_error)
+    
     # Calcular los días trabajados para el periodo
-    # Nota: Se podría pasar dias_trabajados como argumento si ya se calculó externamente
-    #       para evitar recalcularlo. Por ahora, lo calculamos aquí.
     try:
         dias_trabajados = calcular_dias_liquidacion(fecha_inicio, fecha_fin)
     except ValueError as e:
@@ -150,18 +113,84 @@ def calcular_intereses_cesantias(
     if dias_trabajados < 0: # Validación extra
         raise ValueError("Los días trabajados no pueden ser negativos.")
 
-    # Obtener la tasa de interés desde la configuración
-    tasa_interes = settings.PORCENTAJE_INTERESES_CESANTIAS
-
-    # Calcular los intereses
-    intereses = (valor_cesantias * dias_trabajados * tasa_interes) / 360.0
+    # Calcular los intereses usando la constante desde constants.py
+    intereses = (valor_cesantias * dias_trabajados * PORCENTAJE_INTERESES_CESANTIAS) / DIAS_ANIO_COMERCIAL
 
     return intereses
 
 
-# ... (Resto de funciones: intereses_cesantias, prima, vacaciones, etc. a implementar) ...
-
-# ... (Función Orquestadora calcular_liquidacion_final a implementar) ...
+# --- Función de cálculo completo de liquidación ---
+def calcular_liquidacion_completa(
+    salario_mensual: float,
+    fecha_inicio: datetime.date,
+    fecha_fin: datetime.date,
+    incluir_auxilio: bool = True
+) -> Dict[str, ResultadoCalculo]:
+    """
+    Calcula todos los conceptos de liquidación aplicables para un periodo.
+    
+    Args:
+        salario_mensual: Salario base mensual
+        fecha_inicio: Fecha de inicio del periodo
+        fecha_fin: Fecha de fin del periodo
+        incluir_auxilio: Si debe considerarse el auxilio de transporte según normas
+        
+    Returns:
+        Diccionario con los resultados de cálculo por concepto
+    """
+    from src.core.constants import CONCEPTOS
+    
+    # Validar fechas
+    es_valido, mensaje_error = validar_fechas_periodo(fecha_inicio, fecha_fin)
+    if not es_valido:
+        raise ValueError(mensaje_error)
+    
+    anio_liquidacion = fecha_fin.year
+    resultados = {}
+    
+    # Crear periodo laboral
+    periodo = PeriodoLaboral(
+        fecha_inicio=fecha_inicio,
+        fecha_fin=fecha_fin,
+        salario_base=salario_mensual,
+        incluye_auxilio=incluir_auxilio
+    )
+    
+    # 1. Calcular cesantías
+    cesantias_valor = calcular_cesantias(
+        salario_mensual=periodo.salario_base,
+        fecha_inicio=periodo.fecha_inicio,
+        fecha_fin=periodo.fecha_fin,
+        anio_liquidacion=anio_liquidacion
+    )
+    
+    resultados["cesantias"] = ResultadoCalculo(
+        concepto=CONCEPTOS["CESANTIAS"],
+        valor=cesantias_valor,
+        dias_calculados=periodo.dias_laborados,
+        fecha_inicio=periodo.fecha_inicio,
+        fecha_fin=periodo.fecha_fin
+    )
+    
+    # 2. Calcular intereses sobre cesantías
+    intereses_valor = calcular_intereses_cesantias(
+        valor_cesantias=cesantias_valor,
+        fecha_inicio=periodo.fecha_inicio,
+        fecha_fin=periodo.fecha_fin
+    )
+    
+    resultados["intereses"] = ResultadoCalculo(
+        concepto=CONCEPTOS["INTERESES"],
+        valor=intereses_valor,
+        dias_calculados=periodo.dias_laborados,
+        fecha_inicio=periodo.fecha_inicio,
+        fecha_fin=periodo.fecha_fin
+    )
+    
+    # Aquí se pueden añadir más cálculos a medida que se implementen
+    # (prima, vacaciones, etc.)
+    
+    return resultados
 
 
 

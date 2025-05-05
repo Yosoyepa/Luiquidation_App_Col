@@ -1,0 +1,20 @@
+{
+  "app_settings": {
+    "theme": "system",
+    "locale": "es_CO.UTF-8",
+    "fallback_locales": ["es_ES.UTF-8", "es_CO", "es"]
+  },
+  "ui_settings": {
+    "window_width": 950,
+    "window_height": 600,
+    "min_width": 700,
+    "min_height": 500
+  },
+  "calculation_defaults": {
+    "include_transport_allowance": true,
+    "use_commercial_year": true
+  },
+  "historical_data": {
+    "comment": "Los datos históricos ahora se manejan en settings.py"
+  }
+}
