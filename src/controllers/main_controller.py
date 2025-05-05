@@ -3,17 +3,19 @@ import datetime
 import locale
 import src.ui.theme as theme
 from src.core import calculator
-from src.core.constants import CONCEPTOS
-from src.core.models import PeriodoLaboral, ResultadoCalculo
+from src.core.constants import CONCEPTOS, DIAS_ANIO_COMERCIAL
+from src.core.models import PeriodoLaboral, ResultadoCalculo, ResultadoPrima
 from src.ui.main_window import MainWindow
 from src.utils.validation import validar_valor_numerico, validar_fechas_periodo
 from src.utils.formatting import formatear_moneda, formatear_porcentaje
+from src.utils.date_helpers import calcular_dias_liquidacion
 
 # Importar los tipos de frame específicos para type hinting
 from src.ui.frames.main_menu_frame import MainMenuFrame
 from src.ui.frames.days_calculator_frame import DaysCalculatorFrame
 from src.ui.frames.cesantias_frame import CesantiasFrame
 from src.ui.frames.intereses_cesantias_frame import InteresesCesantiasFrame
+from src.ui.frames.prima_frame import PrimaFrame
 from typing import Any, Dict, Optional, Tuple
 
 # --- Configuración de Locale (Importante para formato de moneda) ---
@@ -54,6 +56,7 @@ class MainController:
         self.days_calc_frame: Optional[DaysCalculatorFrame] = view.get_frame("DaysCalculatorFrame")
         self.cesantias_frame: Optional[CesantiasFrame] = view.get_frame("CesantiasFrame")
         self.intereses_frame: Optional[InteresesCesantiasFrame] = view.get_frame("InteresesCesantiasFrame")
+        self.prima_frame: Optional[PrimaFrame] = view.get_frame("PrimaFrame")
 
         # Conectar señales para todos los frames existentes usando métodos helper
         if self.main_menu_frame: self._connect_main_menu_signals()
@@ -67,6 +70,9 @@ class MainController:
 
         if self.intereses_frame: self._connect_intereses_signals()
         else: print("Error: InteresesCesantiasFrame no encontrado al inicializar MainController.")
+        
+        if self.prima_frame: self._connect_prima_signals()
+        else: print("Error: PrimaFrame no encontrado al inicializar MainController.")
 
     def _connect_main_menu_signals(self):
         """Conecta los comandos de las tarjetas del menú principal."""
@@ -75,8 +81,8 @@ class MainController:
         self.main_menu_frame.set_card_command("CalcDias", self.show_days_calculator)
         self.main_menu_frame.set_card_command("Cesantias", self.show_cesantias_calculator)
         self.main_menu_frame.set_card_command("Intereses", self.show_intereses_calculator)
+        self.main_menu_frame.set_card_command("Prima", self.show_prima_calculator)
         # Conectar otras tarjetas aquí cuando se implementen...
-        # self.main_menu_frame.set_card_command("Prima", self.show_prima_calculator)
         # self.main_menu_frame.set_card_command("Vacaciones", self.show_vacaciones_calculator)
 
     def _connect_days_calculator_signals(self):
@@ -100,6 +106,12 @@ class MainController:
         print("Conectando señales de Calculadora Intereses...")
         self.intereses_frame.set_calculate_command(self._on_calculate_intereses_click)
         self.intereses_frame.set_back_command(self.show_main_menu)
+        
+    def _connect_prima_signals(self):
+        """Conecta los comandos del frame Calculadora de Prima."""
+        print("Conectando señales de Calculadora Prima...")
+        self.prima_frame.set_calculate_command(self._on_calculate_prima_click)
+        self.prima_frame.set_back_command(self.show_main_menu)
 
     # --- Métodos de Navegación ---
     def show_main_menu(self):
@@ -134,6 +146,20 @@ class MainController:
             self.view.show_frame("InteresesCesantiasFrame")
         else:
             print("Error: InteresesCesantiasFrame no disponible.")
+            
+    def show_prima_calculator(self):
+        """Muestra el frame de la calculadora de prima de servicios."""
+        print("Navegando a: PrimaFrame")
+        if self.prima_frame:
+            # Limpiar resultados anteriores
+            self.prima_frame.update_results({
+                "prima_s1": "Prima Semestre 1: -", 
+                "prima_s2": "Prima Semestre 2: -",
+                "prima_total": "Prima Total Periodo: -"
+            })
+            self.view.show_frame("PrimaFrame")
+        else:
+            print("Error: PrimaFrame no disponible.")
 
     # --- Métodos de Callback para Cálculos ---
     def _on_calculate_dias_click(self):
@@ -153,8 +179,6 @@ class MainController:
                 raise ValueError(mensaje_error)
                 
             print(f"Calculando días entre {fecha_inicio} y {fecha_fin}")
-            # Usar date_helpers para el cálculo pero mantener compatibilidad con el código existente
-            from src.utils.date_helpers import calcular_dias_liquidacion
             dias_calculados = calcular_dias_liquidacion(fecha_inicio, fecha_fin)
             
             print(f"Días calculados: {dias_calculados}")
@@ -312,6 +336,65 @@ class MainController:
                   self.intereses_frame.show_error("Ocurrió un error inesperado.")
              else:
                   self.intereses_frame.update_result("Error inesperado.")
+    
+    def _on_calculate_prima_click(self):
+        """Calcula la prima de servicios desde PrimaFrame."""
+        print("Botón Calcular Prima presionado.")
+        if not self.prima_frame: return
+        
+        results_payload: Dict[str, str] = {}  # Para enviar a la UI
+        try:
+            # 1. Obtener y validar entradas de la UI
+            inputs = self.prima_frame.get_inputs()
+            salario_basico = inputs["salario_mensual"]
+            fecha_inicio = inputs["fecha_inicio"]
+            fecha_fin = inputs["fecha_fin"]
+            anio = fecha_fin.year  # Año para buscar params
+            
+            # Validar salario
+            es_valido, mensaje_error = validar_valor_numerico(salario_basico, 0, "salario básico")
+            if not es_valido:
+                raise ValueError(mensaje_error)
+                
+            # Validar fechas
+            es_valido, mensaje_error = validar_fechas_periodo(fecha_inicio, fecha_fin)
+            if not es_valido:
+                raise ValueError(mensaje_error)
+                
+            print(f"Inputs Prima: Salario Básico={salario_basico}, Inicio={fecha_inicio}, Fin={fecha_fin}, Año Ref={anio}")
+            
+            # 2. Calcular Prima
+            resultado_prima = calculator.calcular_prima_servicios(
+                salario_mensual=salario_basico,
+                fecha_inicio=fecha_inicio,
+                fecha_fin=fecha_fin,
+                anio_liquidacion=anio
+            )
+            
+            print(f"Prima calculada: {resultado_prima}")
+            
+            # 3. Formatear resultados
+            prima_s1_formateado = formatear_moneda(resultado_prima["prima_semestre_1"])
+            prima_s2_formateado = formatear_moneda(resultado_prima["prima_semestre_2"])
+            prima_total_formateado = formatear_moneda(resultado_prima["prima_total"])
+            
+            # 4. Preparar payload para la UI
+            results_payload["prima_s1"] = f"Prima Semestre 1: {prima_s1_formateado}"
+            results_payload["prima_s2"] = f"Prima Semestre 2: {prima_s2_formateado}"
+            results_payload["prima_total"] = f"Prima Total Periodo: {prima_total_formateado}"
+            
+        except ValueError as e:
+            print(f"Error de validación/cálculo Prima: {e}")
+            results_payload["error"] = str(e)
+        except Exception as e:
+            print(f"Error inesperado en cálculo prima: {e}")
+            results_payload["error"] = f"Ocurrió un error inesperado: {e}"
+            
+        # 5. Actualizar la UI
+        if hasattr(self.prima_frame, 'update_results'):
+            self.prima_frame.update_results(results_payload)
+        else:
+            print("Error: PrimaFrame no tiene el método 'update_results'.")
 
     # --- Otros métodos ---
     # def change_mode(self, mode): ...

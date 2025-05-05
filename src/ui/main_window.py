@@ -6,6 +6,7 @@ from .frames.main_menu_frame import MainMenuFrame
 from .frames.days_calculator_frame import DaysCalculatorFrame
 from .frames.cesantias_frame import CesantiasFrame
 from .frames.intereses_cesantias_frame import InteresesCesantiasFrame
+from .frames.prima_frame import PrimaFrame
 
 class MainWindow(ctk.CTk):
     """
@@ -46,11 +47,9 @@ class MainWindow(ctk.CTk):
         self.frames = {}
 
         # --- Crear e inicializar todos los frames ---
-        for F in (MainMenuFrame, DaysCalculatorFrame, CesantiasFrame, InteresesCesantiasFrame):
+        for F in (MainMenuFrame, DaysCalculatorFrame, CesantiasFrame, InteresesCesantiasFrame, PrimaFrame):
             page_name = F.__name__
             # Crear instancia pasando el contenedor como master
-            # Usamos **kwargs para pasar otros posibles argumentos si F los aceptara
-            # Es importante que InteresesCesantiasFrame también acepte 'master'
             frame = F(master=container)
             self.frames[page_name] = frame
             # Colocar todos en el mismo lugar

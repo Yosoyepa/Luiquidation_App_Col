@@ -15,7 +15,7 @@ from src.core.constants import (
     MAX_SMMLV_PARA_AUXILIO_TRANSPORTE,
     DIAS_ANIO_COMERCIAL
 )
-from src.utils.date_helpers import calcular_dias_liquidacion
+from src.utils.date_helpers import _calcular_dias_por_semestre, calcular_dias_liquidacion
 from src.utils.validation import validar_fechas_periodo
 from src.core.models import PeriodoLaboral, ResultadoCalculo
 
@@ -189,8 +189,80 @@ def calcular_liquidacion_completa(
     
     # Aquí se pueden añadir más cálculos a medida que se implementen
     # (prima, vacaciones, etc.)
-    
     return resultados
+
+
+def calcular_prima_servicios(
+    salario_mensual: float,
+    fecha_inicio: datetime.date,
+    fecha_fin: datetime.date,
+    anio_liquidacion: Optional[int] = None
+) -> Dict[str, float]:
+    """
+    Calcula la Prima de Servicios para el periodo especificado.
+
+    La prima de servicios en Colombia equivale a un mes de salario por año laborado,
+    pagadero en dos semestres: 15 días en junio y 15 días en diciembre. Para periodos
+    inferiores se calcula proporcionalmente.
+    
+    Formula Semestral: (Salario Base Liquidación * Días Trabajados Semestre) / 180
+
+    Args:
+        salario_mensual: Salario básico mensual (sin auxilio).
+        fecha_inicio: Fecha de inicio del periodo a liquidar.
+        fecha_fin: Fecha de fin del periodo a liquidar.
+        anio_liquidacion: Año de referencia para SMMLV y Aux. Transporte.
+                          Si es None, se usa el año de fecha_fin.
+
+    Returns:
+        Un diccionario con:
+        {'prima_semestre_1': valor_s1, 'prima_semestre_2': valor_s2, 'prima_total': total,
+         'dias_semestre_1': dias_sem1, 'dias_semestre_2': dias_sem2}
+        
+    Raises:
+        ValueError: Si las fechas son inválidas o si no hay configuración para el año.
+    """
+    # Validar fechas
+    es_valido, mensaje_error = validar_fechas_periodo(fecha_inicio, fecha_fin)
+    if not es_valido:
+        raise ValueError(mensaje_error)
+        
+    if anio_liquidacion is None:
+        anio_liquidacion = fecha_fin.year
+
+    # Obtener SMMLV y Auxilio de Transporte del año correspondiente
+    smmlv_anio = settings.obtener_smmlv(anio_liquidacion)
+    auxilio_transporte_anio = settings.obtener_auxilio_transporte(anio_liquidacion)
+
+    if smmlv_anio <= 0:
+        raise ValueError(f"No se encontró configuración de SMMLV para el año {anio_liquidacion}")
+
+    # Determinar si aplica el auxilio de transporte
+    aplica_auxilio = salario_mensual <= (MAX_SMMLV_PARA_AUXILIO_TRANSPORTE * smmlv_anio)
+
+    # Calcular el salario base para la liquidación (incluye auxilio si aplica)
+    salario_base_liquidacion = salario_mensual
+    if aplica_auxilio and auxilio_transporte_anio > 0:
+        salario_base_liquidacion += auxilio_transporte_anio
+
+    # Calcular días trabajados por semestre dentro del periodo dado
+    from src.utils.date_helpers import calcular_dias_por_semestre
+    dias_por_semestre = calcular_dias_por_semestre(fecha_inicio, fecha_fin)
+    dias_sem1 = dias_por_semestre.get(1, 0)
+    dias_sem2 = dias_por_semestre.get(2, 0)
+
+    # Calcular prima para cada semestre (30 días / semestre = 180 días / año)
+    prima_semestre_1 = (salario_base_liquidacion * dias_sem1) / 180.0 if dias_sem1 > 0 else 0.0
+    prima_semestre_2 = (salario_base_liquidacion * dias_sem2) / 180.0 if dias_sem2 > 0 else 0.0
+    prima_total = prima_semestre_1 + prima_semestre_2
+
+    return {
+        "prima_semestre_1": prima_semestre_1,
+        "prima_semestre_2": prima_semestre_2,
+        "prima_total": prima_total,
+        "dias_semestre_1": dias_sem1,
+        "dias_semestre_2": dias_sem2
+    }
 
 
 

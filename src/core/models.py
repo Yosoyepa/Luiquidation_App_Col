@@ -41,3 +41,35 @@ class ResultadoCalculo:
         """Formatea el valor como moneda."""
         from src.utils.formatting import formatear_moneda
         return formatear_moneda(self.valor)
+
+@dataclass
+class ResultadoPrima:
+    """Representa el resultado del cálculo de prima de servicios."""
+    semestre_1: float
+    semestre_2: float
+    dias_semestre_1: int
+    dias_semestre_2: int
+    fecha_inicio: date
+    fecha_fin: date
+    anio_liquidacion: int
+    detalles: Dict[str, Union[float, str, int]] = field(default_factory=dict)
+    
+    @property
+    def total(self) -> float:
+        """Calcula el total de la prima para el periodo."""
+        return self.semestre_1 + self.semestre_2
+    
+    def formatear_semestre_1(self) -> str:
+        """Formatea el valor del primer semestre como moneda."""
+        from src.utils.formatting import formatear_moneda
+        return formatear_moneda(self.semestre_1)
+    
+    def formatear_semestre_2(self) -> str:
+        """Formatea el valor del segundo semestre como moneda."""
+        from src.utils.formatting import formatear_moneda
+        return formatear_moneda(self.semestre_2)
+    
+    def formatear_total(self) -> str:
+        """Formatea el valor total como moneda."""
+        from src.utils.formatting import formatear_moneda
+        return formatear_moneda(self.total)

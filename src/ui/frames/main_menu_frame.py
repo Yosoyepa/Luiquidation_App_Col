@@ -179,7 +179,7 @@ class MainMenuFrame(ctk.CTkFrame):
         self.cards_main["Vacaciones"] = ToolCard(self.main_content_frame, text="Calcular Vacaciones", state="disabled")
         self.cards_main["Vacaciones"].grid(row=row_idx, column=1, padx=5, pady=5, sticky="ew")
         row_idx += 1
-        self.cards_main["Prima"] = ToolCard(self.main_content_frame, text="Calcular Prima", state="disabled")
+        self.cards_main["Prima"] = ToolCard(self.main_content_frame, text="Calcular Prima", state="normal")
         self.cards_main["Prima"].grid(row=row_idx, column=0, padx=5, pady=5, sticky="ew")
         self.cards_main["Intereses"] = ToolCard(self.main_content_frame, text="Calcular Intereses a Cesantías", state="normal")
         self.cards_main["Intereses"].grid(row=row_idx, column=1, padx=5, pady=5, sticky="ew")
